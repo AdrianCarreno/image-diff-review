@@ -16,7 +16,9 @@ from image_diff_review.output import Report
 from image_diff_review.output import SideBySideRenderer
 
 
-def compile_date_pattern(ctx: click.Context, param: click.Parameter, value: str) -> re.Pattern[str]:
+def compile_expected_pattern(
+    ctx: click.Context, param: click.Parameter, value: str
+) -> re.Pattern[str]:
     try:
         return re.compile(value, re.IGNORECASE)
     except re.error as error:
@@ -35,13 +37,17 @@ def compile_date_pattern(ctx: click.Context, param: click.Parameter, value: str)
 )
 @click.option("--path-filter", default="", help="Only consider paths containing this substring")
 @click.option(
-    "--date-pattern",
-    default=RegionClassifier.DATE_LABEL_RE.pattern,
+    "--expected-pattern",
+    default=RegionClassifier.EXPECTED_CHANGE_RE.pattern,
     show_default=True,
-    callback=compile_date_pattern,
-    help="Regular expression (case-insensitive) that marks OCRed text as the date label",
+    callback=compile_expected_pattern,
+    help="Regular expression (case-insensitive) that marks OCRed text as an expected change",
 )
-@click.option("--show-date-only", is_flag=True, help="Also list the images dismissed as date-only")
+@click.option(
+    "--show-expected-only",
+    is_flag=True,
+    help="Also list the images dismissed as having only expected changes",
+)
 @click.option(
     "--side-by-side",
     is_flag=True,
@@ -54,26 +60,26 @@ def main(
     head: str,
     out: Path,
     path_filter: str,
-    date_pattern: re.Pattern[str],
-    show_date_only: bool,
+    expected_pattern: re.Pattern[str],
+    show_expected_only: bool,
     side_by_side: bool,
 ) -> None:
     """Review expected-image fixture changes on a PR branch.
 
     Compares every PNG modified between `merge-base(target, HEAD)` and the new images, pixel-diffs
-    old vs new with OpenCV, and reports only the images whose changes are NOT explained by a
-    "Data as of: ..." label being added/changed (commits that landed on the target branch after the
-    PR branched are ignored). The new images are read from --head. Run it from the repo/worktree
-    root.
+    old vs new with OpenCV, and reports only the images whose changes are NOT explained by
+    expected changes: text matching --expected-pattern, by default a "Data as of: ..." label being
+    added/changed (commits that landed on the target branch after the PR branched are ignored).
+    The new images are read from --head. Run it from the repo/worktree root.
 
     \b
     Each changed region is classified by OCR:
-      * date      - a one-line region whose old or new text matches --date-pattern (by
+      * expected  - a one-line region whose old or new text matches --expected-pattern (by
                     default "Data as of" / "Données en date du" (fr_CA)).
       * shifted   - the same content, moved by a few pixels (e.g. a column re-centred because a
                     neighbouring cell got wider), or a non-numeric label that OCRs identically on
                     both sides. Not a content change.
-      * other     - anything else, including a module title truncated to make room for the date
+      * other     - anything else, including a module title truncated to make room for the expected
                     label; an image with any `other` region (or a size change) is reported for
                     review.
 
@@ -91,9 +97,9 @@ def main(
     Exits 0 when nothing needs review, 1 when an image is flagged, and 2 on an unusable --out.
     """
     renderer = SideBySideRenderer() if side_by_side else DifferenceRenderer()
-    analyzer = ImageAnalyzer(classifier=RegionClassifier(date_pattern))
+    analyzer = ImageAnalyzer(classifier=RegionClassifier(expected_pattern))
     overlays = OverlayWriter(out, renderer)
-    ctx.exit(run(target, head, analyzer, overlays, path_filter, show_date_only))
+    ctx.exit(run(target, head, analyzer, overlays, path_filter, show_expected_only))
 
 
 def run(
@@ -102,7 +108,7 @@ def run(
     analyzer: ImageAnalyzer,
     overlays: OverlayWriter,
     path_filter: str,
-    show_date_only: bool,
+    show_expected_only: bool,
 ) -> int:
     try:
         removed = overlays.prepare()
@@ -130,11 +136,11 @@ def run(
         analysis = analyzer.analyze(old, new)
         if analysis.verdict == Verdict.IDENTICAL:
             report.identical.append(path)
-        elif analysis.verdict == Verdict.DATE_ONLY:
-            report.date_only.append((path, analysis))
+        elif analysis.verdict == Verdict.EXPECTED_ONLY:
+            report.expected_only.append((path, analysis))
         else:
             overlay = overlays.write(path, old, new, analysis.regions)
             report.flagged.append(FlaggedImage(path, analysis, overlay))
 
-    report.print(show_date_only=show_date_only)
+    report.print(show_expected_only=show_expected_only)
     return report.exit_code

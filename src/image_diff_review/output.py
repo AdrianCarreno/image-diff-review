@@ -145,7 +145,7 @@ class Report:
     """Collects the per-image outcomes and prints the summary."""
 
     flagged: list[FlaggedImage] = field(default_factory=list)
-    date_only: list[tuple[str, Analysis]] = field(default_factory=list)
+    expected_only: list[tuple[str, Analysis]] = field(default_factory=list)
     identical: list[str] = field(default_factory=list)
     skipped: list[tuple[str, str]] = field(default_factory=list)
 
@@ -153,21 +153,21 @@ class Report:
     def exit_code(self) -> int:
         return 1 if self.flagged else 0
 
-    def print(self, show_date_only: bool = False) -> None:
-        print(f"\n{len(self.flagged)} image(s) with changes beyond the date label:")
+    def print(self, show_expected_only: bool = False) -> None:
+        print(f"\n{len(self.flagged)} image(s) with unexpected changes:")
         for item in self.flagged:
             print(f"  {item.path}\n      {item.analysis}\n      overlay: {item.overlay}")
             for region in item.analysis.regions:
                 if region.needs_review:
                     print(f"      - {region.box} {region.note}")
         print(
-            f"\nsummary: {len(self.flagged)} flagged, {len(self.date_only)} date-only, "
+            f"\nsummary: {len(self.flagged)} flagged, {len(self.expected_only)} expected-only, "
             f"{len(self.identical)} pixel-identical, "
             f"{len(self.skipped)} added/deleted (not compared)"
         )
-        if show_date_only:
-            print("\ndate-only:")
-            for path, analysis in self.date_only:
+        if show_expected_only:
+            print("\nexpected-only:")
+            for path, analysis in self.expected_only:
                 print(f"  {path}")
                 for region in analysis.regions:
                     print(f"      - {region.kind} {region.box} {region.note}")

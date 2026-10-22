@@ -1,8 +1,9 @@
 # image-diff-review
 
 Review expected-image fixture changes on a PR branch. Pixel-diffs every PNG modified since
-`merge-base(target, HEAD)` and reports only the images whose changes are not explained by a
-"Data as of: ..." label being added or changed.
+`merge-base(target, HEAD)` and reports only the images whose changes are not explained by
+expected changes: text matching `--expected-pattern`, by default a "Data as of: ..." label being
+added or changed.
 
 ## Install
 
@@ -45,7 +46,7 @@ caches the build and needs `uv tool install --reinstall .` after each change.
 Run from the root of the repo (or worktree) under review:
 
 ```sh
-image-diff-review [--target origin/develop] [--head HEAD] [--out DIR] [--path-filter SUBSTR] [--date-pattern REGEX] [--show-date-only] [--side-by-side]
+image-diff-review [--target origin/develop] [--head HEAD] [--out DIR] [--path-filter SUBSTR] [--expected-pattern REGEX] [--show-expected-only] [--side-by-side]
 ```
 
 Each flagged image gets a `<path>.diff.png` in `--out`. By default it is a difference image: new
