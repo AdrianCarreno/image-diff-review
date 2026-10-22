@@ -1,6 +1,6 @@
 [project]
 name = "image-diff-review"
-version = "3.0.0"
+version = "3.0.1"
 description = "Review expected-image fixture changes on a PR branch, ignoring \"Data as of\" label churn"
 readme = "README.md"
 authors = [

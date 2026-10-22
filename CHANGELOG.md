@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v3.0.1 (2026-10-22)
+
+### Performance Improvements
+
+- Load OpenCV only when images are analyzed
+  ([#4](https://github.com/AdrianCarreno/image-diff-review/pull/4),
+  [`0773888`](https://github.com/AdrianCarreno/image-diff-review/commit/07738885c15e8c95e58c009570eab61bfa7c1538))
+
+
 ## v3.0.0 (2026-10-22)
 
 ### Features
