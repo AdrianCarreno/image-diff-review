@@ -65,9 +65,8 @@ def main(
 
     \b
     Each flagged file gets an image in --out:
-      * default         - new minus old brightness: red where the new image is darker, black
-                          where unchanged, green where it is brighter. Boxes: yellow = needs
-                          review, gray = dismissed.
+      * default         - new minus old brightness, fully saturated: red where the new image
+                          is darker, black where unchanged, green where it is brighter.
       * --side-by-side  - old | new next to each other. Boxes: red = needs review, green =
                           dismissed.
 

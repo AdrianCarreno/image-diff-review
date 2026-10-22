@@ -45,13 +45,13 @@ caches the build and needs `uv tool install --reinstall .` after each change.
 Run from the root of the repo (or worktree) under review:
 
 ```sh
-image-diff-review [--target origin/develop] [--head HEAD] [--out DIR] [--path-filter SUBSTR] [--show-date-only]
+image-diff-review [--target origin/develop] [--head HEAD] [--out DIR] [--path-filter SUBSTR] [--show-date-only] [--side-by-side]
 ```
 
 Each flagged image gets a `<path>.diff.png` in `--out`. By default it is a difference image: new
-minus old brightness, red where the new image is darker, black where unchanged, green where it is
-brighter, with yellow boxes around regions that need review. `--side-by-side` saves old | new next
-to each other instead, with red boxes for regions that need review.
+minus old brightness, fully saturated so even tiny changes stand out: red where the new image is
+darker, black where unchanged, green where it is brighter. `--side-by-side` saves old | new next
+to each other instead, with red boxes around regions that need review.
 
 The `--out` folder (default `image_diff_review_out`) gets a
 `.gitignore` containing `*` so it never shows up in `git status`. Overlays from a previous run

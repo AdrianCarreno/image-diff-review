@@ -46,30 +46,19 @@ class SideBySideRenderer(OverlayRenderer):
 
 
 class DifferenceRenderer(OverlayRenderer):
-    """Brightness of new minus old on a red-black-green scale.
+    """Sign of new minus old brightness, per pixel.
 
-    Red where the new image is darker, black where unchanged, green where it is brighter; the
-    stronger the change, the brighter the color. Regions are boxed in colors outside that scale:
-    yellow = needs review, gray = dismissed.
+    Full red where the new image is darker, black where unchanged, full green where it is
+    brighter. Every change is fully saturated, so even a one-level difference stands out.
     """
-
-    REVIEW_COLOR = (0, 255, 255)
-    DISMISSED_COLOR = (128, 128, 128)
-    BOX_PAD = 3
 
     def render(self, old: np.ndarray, new: np.ndarray, regions: list[Region]) -> np.ndarray:
         # Images of different sizes are compared on a shared white canvas, top-left aligned.
         shape = (max(old.shape[0], new.shape[0]), max(old.shape[1], new.shape[1]))
         difference = self.brightness(new, shape) - self.brightness(old, shape)
         canvas = np.zeros((*shape, 3), np.uint8)
-        canvas[..., 1] = np.clip(difference, 0, 255)
-        canvas[..., 2] = np.clip(-difference, 0, 255)
-        for region in regions:
-            x0, y0, x1, y1 = region.box
-            color = self.REVIEW_COLOR if region.needs_review else self.DISMISSED_COLOR
-            # Padded so the box outlines the changed pixels instead of covering them.
-            pad = self.BOX_PAD
-            cv2.rectangle(canvas, (x0 - pad, y0 - pad), (x1 + pad, y1 + pad), color, 1)
+        canvas[difference > 0, 1] = 255
+        canvas[difference < 0, 2] = 255
         return canvas
 
     @staticmethod
