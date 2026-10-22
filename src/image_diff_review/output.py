@@ -1,3 +1,5 @@
+from abc import ABC
+from abc import abstractmethod
 from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
@@ -13,19 +15,80 @@ class OutputDirError(Exception):
     """The output directory can't be used without risking files this tool didn't create."""
 
 
-class OverlayWriter:
-    """Writes side-by-side old | new images with the changed regions boxed.
+def ink_difference(old: np.ndarray, new: np.ndarray) -> np.ndarray:
+    """New minus old ink (darkness, 0 = white, 255 = black) per pixel, as int16.
 
-    Red = needs review, green = dismissed.
+    Fixtures are dark content on a light background, so ink tracks content: positive where content
+    was added, negative where it was removed. Images of different sizes are compared on a shared
+    white canvas, top-left aligned.
+    """
+    shape = (max(old.shape[0], new.shape[0]), max(old.shape[1], new.shape[1]))
+    return _ink(new, shape) - _ink(old, shape)
+
+
+def _ink(image: np.ndarray, shape: tuple[int, int]) -> np.ndarray:
+    padded = np.zeros(shape, np.int16)
+    padded[: image.shape[0], : image.shape[1]] = 255 - cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    return padded
+
+
+class OverlayRenderer(ABC):
+    """Draws the image saved for a flagged file from its old and new versions."""
+
+    @abstractmethod
+    def render(self, old: np.ndarray, new: np.ndarray, regions: list[Region]) -> np.ndarray: ...
+
+
+class SideBySideRenderer(OverlayRenderer):
+    """Old | new side by side with every changed region boxed on both sides.
+
+    Red on the old side (those pixels are gone), green on the new side (those pixels are new).
     """
 
-    REVIEW_COLOR = (0, 0, 255)
-    DISMISSED_COLOR = (0, 160, 0)
+    OLD_COLOR = (0, 0, 255)
+    NEW_COLOR = (0, 160, 0)
+    BOX_THICKNESS = 1
+
+    def render(self, old: np.ndarray, new: np.ndarray, regions: list[Region]) -> np.ndarray:
+        canvas = np.full(
+            (max(old.shape[0], new.shape[0]), old.shape[1] + new.shape[1], 3), 255, np.uint8
+        )
+        canvas[: old.shape[0], : old.shape[1]] = old
+        canvas[: new.shape[0], old.shape[1] :] = new
+        offset = old.shape[1]
+        for region in regions:
+            x0, y0, x1, y1 = region.box
+            cv2.rectangle(canvas, (x0, y0), (x1, y1), self.OLD_COLOR, self.BOX_THICKNESS)
+            cv2.rectangle(
+                canvas, (offset + x0, y0), (offset + x1, y1), self.NEW_COLOR, self.BOX_THICKNESS
+            )
+        return canvas
+
+
+class DifferenceRenderer(OverlayRenderer):
+    """Sign of new minus old ink, per pixel.
+
+    Full green where content was added, black where unchanged, full red where it was removed.
+    Every change is fully saturated, so even a one-level difference stands out.
+    """
+
+    def render(self, old: np.ndarray, new: np.ndarray, regions: list[Region]) -> np.ndarray:
+        difference = ink_difference(old, new)
+        canvas = np.zeros((*difference.shape, 3), np.uint8)
+        canvas[difference > 0, 1] = 255
+        canvas[difference < 0, 2] = 255
+        return canvas
+
+
+class OverlayWriter:
+    """Saves one rendered image per flagged file into the output directory."""
+
     OVERLAY_SUFFIX = ".diff.png"
     GITIGNORE = ".gitignore"
 
-    def __init__(self, out_dir: Path):
+    def __init__(self, out_dir: Path, renderer: OverlayRenderer):
         self.out_dir = out_dir
+        self.renderer = renderer
 
     def path_for(self, image_path: str) -> Path:
         return self.out_dir / (image_path.replace("/", "__") + self.OVERLAY_SUFFIX)
@@ -63,16 +126,7 @@ class OverlayWriter:
     def write(
         self, image_path: str, old: np.ndarray, new: np.ndarray, regions: list[Region]
     ) -> Path:
-        canvas = np.full(
-            (max(old.shape[0], new.shape[0]), old.shape[1] + new.shape[1], 3), 255, np.uint8
-        )
-        canvas[: old.shape[0], : old.shape[1]] = old
-        canvas[: new.shape[0], old.shape[1] :] = new
-        for region in regions:
-            x0, y0, x1, y1 = region.box
-            color = self.REVIEW_COLOR if region.needs_review else self.DISMISSED_COLOR
-            cv2.rectangle(canvas, (x0, y0), (x1, y1), color, 3)
-            cv2.rectangle(canvas, (old.shape[1] + x0, y0), (old.shape[1] + x1, y1), color, 3)
+        canvas = self.renderer.render(old, new, regions)
         out_path = self.path_for(image_path)
         out_path.parent.mkdir(parents=True, exist_ok=True)
         cv2.imwrite(str(out_path), canvas)
