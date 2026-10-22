@@ -13,8 +13,8 @@ PR titles follow Conventional Commits (CI checks this), because the type decides
 | --- | --- | --- |
 | Removed or renamed flag, changed default, exit code, or output format | `feat!: ...` / `fix!: ...` | major |
 | New flag or new behavior that existing invocations don't notice | `feat: ...` | minor |
-| Bug fix | `fix: ...` | patch |
-| Internal change under `src/` with no visible effect | `refactor: ...` / `perf: ...` | none |
+| Bug fix, or a speed-up users notice | `fix: ...` / `perf: ...` | patch |
+| Internal change under `src/` with no visible effect | `refactor: ...` | none |
 | README, CI, lint config, tooling | `docs: ...` / `ci: ...` / `chore: ...` | none |
 
 The title is what users read in the changelog, so describe the change in user-facing terms.
