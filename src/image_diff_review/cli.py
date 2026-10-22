@@ -6,10 +6,12 @@ import click
 from image_diff_review.analysis import ImageAnalyzer
 from image_diff_review.analysis import Verdict
 from image_diff_review.git import GitRepo
+from image_diff_review.output import DifferenceRenderer
 from image_diff_review.output import FlaggedImage
 from image_diff_review.output import OutputDirError
 from image_diff_review.output import OverlayWriter
 from image_diff_review.output import Report
+from image_diff_review.output import SideBySideRenderer
 
 
 @click.command(context_settings={"help_option_names": ["-h", "--help"]})
@@ -24,6 +26,11 @@ from image_diff_review.output import Report
 )
 @click.option("--path-filter", default="", help="Only consider paths containing this substring")
 @click.option("--show-date-only", is_flag=True, help="Also list the images dismissed as date-only")
+@click.option(
+    "--side-by-side",
+    is_flag=True,
+    help="Save flagged images as old | new side by side instead of as a difference image",
+)
 @click.pass_context
 def main(
     ctx: click.Context,
@@ -32,6 +39,7 @@ def main(
     out: Path,
     path_filter: str,
     show_date_only: bool,
+    side_by_side: bool,
 ) -> None:
     """Review expected-image fixture changes on a PR branch.
 
@@ -55,20 +63,33 @@ def main(
     Needs the `tesseract` binary (brew install tesseract) and git-lfs (PNGs are LFS pointers in
     git, so they are read through `git lfs smudge`).
 
+    \b
+    Each flagged file gets an image in --out:
+      * default         - new minus old brightness: red where the new image is darker, black
+                          where unchanged, green where it is brighter. Boxes: yellow = needs
+                          review, gray = dismissed.
+      * --side-by-side  - old | new next to each other. Boxes: red = needs review, green =
+                          dismissed.
+
     Exits 0 when nothing needs review, 1 when an image is flagged, and 2 on an unusable --out.
     """
-    ctx.exit(run(target, head, out, path_filter, show_date_only))
+    renderer = SideBySideRenderer() if side_by_side else DifferenceRenderer()
+    ctx.exit(run(target, head, OverlayWriter(out, renderer), path_filter, show_date_only))
 
 
-def run(target: str, head: str, out: Path, path_filter: str, show_date_only: bool) -> int:
-    overlays = OverlayWriter(out)
+def run(
+    target: str, head: str, overlays: OverlayWriter, path_filter: str, show_date_only: bool
+) -> int:
     try:
         removed = overlays.prepare()
     except OutputDirError as error:
         print(error, file=sys.stderr)
         return 2
     if removed:
-        print(f"removed {len(removed)} overlay(s) from a previous run in {out}", file=sys.stderr)
+        print(
+            f"removed {len(removed)} overlay(s) from a previous run in {overlays.out_dir}",
+            file=sys.stderr,
+        )
 
     repo = GitRepo()
     base = repo.merge_base(target, head)

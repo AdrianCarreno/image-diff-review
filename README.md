@@ -48,7 +48,12 @@ Run from the root of the repo (or worktree) under review:
 image-diff-review [--target origin/develop] [--head HEAD] [--out DIR] [--path-filter SUBSTR] [--show-date-only]
 ```
 
-Overlays of flagged images go to `--out` (default `image_diff_review_out`), which gets a
+Each flagged image gets a `<path>.diff.png` in `--out`. By default it is a difference image: new
+minus old brightness, red where the new image is darker, black where unchanged, green where it is
+brighter, with yellow boxes around regions that need review. `--side-by-side` saves old | new next
+to each other instead, with red boxes for regions that need review.
+
+The `--out` folder (default `image_diff_review_out`) gets a
 `.gitignore` containing `*` so it never shows up in `git status`. Overlays from a previous run
 (`*.diff.png`) are deleted at startup; if the folder holds anything else, the tool lists it and
 exits without deleting anything.
