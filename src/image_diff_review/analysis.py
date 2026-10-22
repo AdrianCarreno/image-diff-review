@@ -11,7 +11,7 @@ Box = tuple[int, int, int, int]  # x0, y0, x1, y1 inclusive
 
 
 class RegionKind(StrEnum):
-    DATE = "date"
+    EXPECTED = "expected"
     SHIFTED = "shifted"
     OTHER = "other"
 
@@ -29,7 +29,7 @@ class Region:
 
 class Verdict(StrEnum):
     IDENTICAL = "identical"
-    DATE_ONLY = "date-only"
+    EXPECTED_ONLY = "expected-only"
     REVIEW = "review"
 
 
@@ -93,12 +93,13 @@ class ImageDiffer:
 
 
 class RegionClassifier:
-    """Decides whether a changed region is a date label, moved content, or a real change."""
+    """Decides whether a changed region is an expected change, moved content, or a real change."""
 
     # Regions taller than this are never a one-line label, so they are not OCRed.
     LINE_MAX_HEIGHT = 30
     OCR_SCALE = 3
-    DATE_LABEL_RE = re.compile(
+    # OCRed text matching this marks the region as an expected change (by default, a date label).
+    EXPECTED_CHANGE_RE = re.compile(
         r"(data\s*as\s*of|as\s*of\s*:|donn[ée]es\s*en\s*date)", re.IGNORECASE
     )
 
@@ -111,6 +112,9 @@ class RegionClassifier:
     # Fraction of the patch's ink pixels allowed to still differ after the best shift.
     SHIFT_MAX_MISMATCH = 0.08
 
+    def __init__(self, expected_change_re: re.Pattern[str] = EXPECTED_CHANGE_RE):
+        self.expected_change_re = expected_change_re
+
     def classify(self, old: np.ndarray, new: np.ndarray, boxes: list[Box]) -> list[Region]:
         return [self.classify_box(old, new, box) for box in boxes]
 
@@ -122,8 +126,8 @@ class RegionClassifier:
 
         old_text, new_text = self.ocr(old, box), self.ocr(new, box)
         note = f"{old_text!r} -> {new_text!r}"
-        if self.DATE_LABEL_RE.search(old_text) or self.DATE_LABEL_RE.search(new_text):
-            return Region(box, RegionKind.DATE, note)
+        if self.expected_change_re.search(old_text) or self.expected_change_re.search(new_text):
+            return Region(box, RegionKind.EXPECTED, note)
         if old_text == new_text and len(old_text) >= 3 and not any(c.isdigit() for c in old_text):
             # Same words on both sides (e.g. a column header nudged against a re-sized background).
             return Region(box, RegionKind.SHIFTED, note)
@@ -186,6 +190,6 @@ class ImageAnalyzer:
             return Analysis(
                 Verdict.REVIEW,
                 regions,
-                f"{len(others)} of {len(regions)} regions are not date-related",
+                f"{len(others)} of {len(regions)} regions are not expected changes",
             )
-        return Analysis(Verdict.DATE_ONLY, regions)
+        return Analysis(Verdict.EXPECTED_ONLY, regions)
