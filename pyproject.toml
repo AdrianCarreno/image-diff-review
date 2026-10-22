@@ -41,3 +41,22 @@ python-version = "3.13"
 
 [tool.ty.rules]
 possibly-unresolved-reference = "error"
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:project.version"]
+tag_format = "v{version}"
+commit_message = "chore(release): {version}"
+build_command = """
+    uv lock --upgrade-package "$PACKAGE_NAME"
+    git add uv.lock
+"""
+
+[tool.semantic_release.branches.main]
+match = "main"
+
+[tool.semantic_release.commit_parser_options]
+# Squash merges put the PR's commit list in the body; only the PR title decides the bump.
+parse_squash_commits = false
+
+[tool.semantic_release.changelog.default_templates]
+changelog_file = "CHANGELOG.md"

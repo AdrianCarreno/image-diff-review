@@ -1,16 +1,21 @@
 # AGENTS.md
 
-## Versioning
+## Pull requests and versioning
 
-People install this tool from GitHub with `uv tool install git+...`, and the version in
-`pyproject.toml` is how they tell builds apart (`uv tool list`). Every commit that changes what
-the installed `image-diff-review` command does carries a version bump in the same commit:
+Every change lands on `main` through a squash-merged PR, and the PR title becomes the commit
+message. On each merge, python-semantic-release (`.github/workflows/release.yaml`) reads that
+title, bumps the version in `pyproject.toml` and `uv.lock`, updates `CHANGELOG.md`, and tags and
+publishes the GitHub release. The version belongs to that workflow; keep it as is in your PRs.
 
-| Change | Bump |
-| --- | --- |
-| Removed or renamed flag, changed default, exit code, or output format | `major` |
-| New flag or new behavior that existing invocations don't notice | `minor` |
-| Bug fix, or internal change to the code under `src/` with no visible effect | `patch` |
+PR titles follow Conventional Commits (CI checks this), because the type decides the bump:
 
-Bump with `uv version --bump <major|minor|patch>`, which updates `pyproject.toml` and `uv.lock`
-together. Commits touching only the README, CI, or lint config keep the current version.
+| Change to the installed `image-diff-review` command | PR title | Bump |
+| --- | --- | --- |
+| Removed or renamed flag, changed default, exit code, or output format | `feat!: ...` / `fix!: ...` | major |
+| New flag or new behavior that existing invocations don't notice | `feat: ...` | minor |
+| Bug fix | `fix: ...` | patch |
+| Internal change under `src/` with no visible effect | `refactor: ...` / `perf: ...` | none |
+| README, CI, lint config, tooling | `docs: ...` / `ci: ...` / `chore: ...` | none |
+
+The title is what users read in the changelog, so describe the change in user-facing terms.
+Each merge adds a `chore(release)` commit to `main`; pull before branching for the next change.
