@@ -19,7 +19,7 @@ uv tool install git+https://github.com/AdrianCarreno/image-diff-review
 ```
 
 Use `git+ssh://git@github.com/AdrianCarreno/image-diff-review` if you authenticate with SSH. Pin a
-branch, tag, or commit by appending `@<ref>`, e.g. `...image-diff-review@v0.1.0`.
+branch, tag, or commit by appending `@<ref>`, e.g. `...image-diff-review@v1.0.0`.
 
 To update to the latest commit:
 
