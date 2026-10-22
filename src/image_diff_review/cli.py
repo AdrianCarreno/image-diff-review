@@ -1,19 +1,20 @@
+# The analysis and output modules import OpenCV, whose first load after an install can take ~20s
+# on macOS. They are imported inside the functions that need them, so --help, option errors and
+# shell completion never pay that cost.
+from __future__ import annotations
+
 import re
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import click
 
-from image_diff_review.analysis import ImageAnalyzer
-from image_diff_review.analysis import RegionClassifier
-from image_diff_review.analysis import Verdict
-from image_diff_review.git import GitRepo
-from image_diff_review.output import DifferenceRenderer
-from image_diff_review.output import FlaggedImage
-from image_diff_review.output import OutputDirError
-from image_diff_review.output import OverlayWriter
-from image_diff_review.output import Report
-from image_diff_review.output import SideBySideRenderer
+from image_diff_review.patterns import EXPECTED_CHANGE_RE
+
+if TYPE_CHECKING:
+    from image_diff_review.analysis import ImageAnalyzer
+    from image_diff_review.output import OverlayWriter
 
 
 def compile_expected_pattern(
@@ -38,7 +39,7 @@ def compile_expected_pattern(
 @click.option("--path-filter", default="", help="Only consider paths containing this substring")
 @click.option(
     "--expected-pattern",
-    default=RegionClassifier.EXPECTED_CHANGE_RE.pattern,
+    default=EXPECTED_CHANGE_RE.pattern,
     show_default=True,
     callback=compile_expected_pattern,
     help="Regular expression (case-insensitive) that marks OCRed text as an expected change",
@@ -96,6 +97,12 @@ def main(
 
     Exits 0 when nothing needs review, 1 when an image is flagged, and 2 on an unusable --out.
     """
+    from image_diff_review.analysis import ImageAnalyzer
+    from image_diff_review.analysis import RegionClassifier
+    from image_diff_review.output import DifferenceRenderer
+    from image_diff_review.output import OverlayWriter
+    from image_diff_review.output import SideBySideRenderer
+
     renderer = SideBySideRenderer() if side_by_side else DifferenceRenderer()
     analyzer = ImageAnalyzer(classifier=RegionClassifier(expected_pattern))
     overlays = OverlayWriter(out, renderer)
@@ -110,6 +117,12 @@ def run(
     path_filter: str,
     show_expected_only: bool,
 ) -> int:
+    from image_diff_review.analysis import Verdict
+    from image_diff_review.git import GitRepo
+    from image_diff_review.output import FlaggedImage
+    from image_diff_review.output import OutputDirError
+    from image_diff_review.output import Report
+
     try:
         removed = overlays.prepare()
     except OutputDirError as error:

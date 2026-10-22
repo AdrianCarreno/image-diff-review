@@ -7,6 +7,8 @@ import cv2
 import numpy as np
 import pytesseract
 
+from image_diff_review.patterns import EXPECTED_CHANGE_RE
+
 Box = tuple[int, int, int, int]  # x0, y0, x1, y1 inclusive
 
 
@@ -98,10 +100,6 @@ class RegionClassifier:
     # Regions taller than this are never a one-line label, so they are not OCRed.
     LINE_MAX_HEIGHT = 30
     OCR_SCALE = 3
-    # OCRed text matching this marks the region as an expected change (by default, a date label).
-    EXPECTED_CHANGE_RE = re.compile(
-        r"(data\s*as\s*of|as\s*of\s*:|donn[ée]es\s*en\s*date)", re.IGNORECASE
-    )
 
     # A region whose old pixels reappear in the new image within this many px is the same content,
     # just moved.
