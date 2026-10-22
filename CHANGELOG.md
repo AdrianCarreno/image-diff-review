@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v3.0.0 (2026-10-22)
+
+### Features
+
+- Make the expected-change pattern configurable and rename date to expected
+  ([#3](https://github.com/AdrianCarreno/image-diff-review/pull/3),
+  [`94edf37`](https://github.com/AdrianCarreno/image-diff-review/commit/94edf37948aac124df4789853e04b7a4ea144b0d))
+
+
 ## v2.0.0 (2026-10-22)
 
 ### Continuous Integration
