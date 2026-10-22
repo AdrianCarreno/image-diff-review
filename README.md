@@ -41,6 +41,42 @@ uv tool install --editable .
 With `--editable`, code changes apply without reinstalling. A non-editable `uv tool install .`
 caches the build and needs `uv tool install --reinstall .` after each change.
 
+## Shell completion
+
+Tab completion for options, with their descriptions, comes from click. Save the completion script
+once and load it from your shell config. The script asks `image-diff-review` for completions on
+each Tab, so it keeps working across upgrades without being regenerated.
+
+### zsh
+
+```sh
+_IMAGE_DIFF_REVIEW_COMPLETE=zsh_source image-diff-review > ~/.image-diff-review-complete.zsh
+```
+
+Then add this to `~/.zshrc`, after `compinit` runs (with oh-my-zsh, after
+`source $ZSH/oh-my-zsh.sh`):
+
+```sh
+source ~/.image-diff-review-complete.zsh
+```
+
+### bash
+
+Needs bash 4.4 or newer. macOS ships bash 3.2, so install a newer one first with `brew install bash`.
+
+```sh
+_IMAGE_DIFF_REVIEW_COMPLETE=bash_source image-diff-review > ~/.image-diff-review-complete.bash
+echo 'source ~/.image-diff-review-complete.bash' >> ~/.bashrc
+```
+
+### fish
+
+```sh
+_IMAGE_DIFF_REVIEW_COMPLETE=fish_source image-diff-review > ~/.config/fish/completions/image-diff-review.fish
+```
+
+Open a new shell (or `source` your config), then type `image-diff-review --` and press Tab.
+
 ## Usage
 
 Run from the root of the repo (or worktree) under review:
