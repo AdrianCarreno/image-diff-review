@@ -15,6 +15,23 @@ class OutputDirError(Exception):
     """The output directory can't be used without risking files this tool didn't create."""
 
 
+def ink_difference(old: np.ndarray, new: np.ndarray) -> np.ndarray:
+    """New minus old ink (darkness, 0 = white, 255 = black) per pixel, as int16.
+
+    Fixtures are dark content on a light background, so ink tracks content: positive where content
+    was added, negative where it was removed. Images of different sizes are compared on a shared
+    white canvas, top-left aligned.
+    """
+    shape = (max(old.shape[0], new.shape[0]), max(old.shape[1], new.shape[1]))
+    return _ink(new, shape) - _ink(old, shape)
+
+
+def _ink(image: np.ndarray, shape: tuple[int, int]) -> np.ndarray:
+    padded = np.zeros(shape, np.int16)
+    padded[: image.shape[0], : image.shape[1]] = 255 - cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    return padded
+
+
 class OverlayRenderer(ABC):
     """Draws the image saved for a flagged file from its old and new versions."""
 
@@ -23,13 +40,16 @@ class OverlayRenderer(ABC):
 
 
 class SideBySideRenderer(OverlayRenderer):
-    """Old | new side by side with the changed regions boxed.
+    """Old | new side by side with every changed region boxed by what changed in it.
 
-    Red = needs review, green = dismissed.
+    Green = content added, red = content removed, on both sides. A region with both (e.g. a
+    number rewritten) is boxed red on the old side and green on the new side.
     """
 
-    REVIEW_COLOR = (0, 0, 255)
-    DISMISSED_COLOR = (0, 160, 0)
+    ADDED_COLOR = (0, 160, 0)
+    REMOVED_COLOR = (0, 0, 255)
+    # Ink change a pixel needs to count as added/removed (ignores anti-aliasing jitter).
+    INK_THRESHOLD = 24
 
     def render(self, old: np.ndarray, new: np.ndarray, regions: list[Region]) -> np.ndarray:
         canvas = np.full(
@@ -37,37 +57,39 @@ class SideBySideRenderer(OverlayRenderer):
         )
         canvas[: old.shape[0], : old.shape[1]] = old
         canvas[: new.shape[0], old.shape[1] :] = new
+        difference = ink_difference(old, new)
         for region in regions:
             x0, y0, x1, y1 = region.box
-            color = self.REVIEW_COLOR if region.needs_review else self.DISMISSED_COLOR
-            cv2.rectangle(canvas, (x0, y0), (x1, y1), color, 3)
-            cv2.rectangle(canvas, (old.shape[1] + x0, y0), (old.shape[1] + x1, y1), color, 3)
+            old_color, new_color = self.box_colors(difference[y0 : y1 + 1, x0 : x1 + 1])
+            cv2.rectangle(canvas, (x0, y0), (x1, y1), old_color, 3)
+            cv2.rectangle(canvas, (old.shape[1] + x0, y0), (old.shape[1] + x1, y1), new_color, 3)
         return canvas
+
+    def box_colors(self, difference: np.ndarray) -> tuple[tuple[int, int, int], ...]:
+        """(old side, new side) box colors for a region's ink difference."""
+        added = bool((difference > self.INK_THRESHOLD).any())
+        removed = bool((difference < -self.INK_THRESHOLD).any())
+        if added and removed:
+            return self.REMOVED_COLOR, self.ADDED_COLOR
+        if not (added or removed):  # only faint changes: go by the net direction
+            added = difference.sum() >= 0
+        color = self.ADDED_COLOR if added else self.REMOVED_COLOR
+        return color, color
 
 
 class DifferenceRenderer(OverlayRenderer):
-    """Sign of new minus old ink (darkness), per pixel.
+    """Sign of new minus old ink, per pixel.
 
-    Fixtures are dark content on a light background, so ink tracks content: full green where the
-    new image is darker (content added), black where unchanged, full red where it is lighter
-    (content removed). Every change is fully saturated, so even a one-level difference stands out.
+    Full green where content was added, black where unchanged, full red where it was removed.
+    Every change is fully saturated, so even a one-level difference stands out.
     """
 
     def render(self, old: np.ndarray, new: np.ndarray, regions: list[Region]) -> np.ndarray:
-        # Images of different sizes are compared on a shared white canvas, top-left aligned.
-        shape = (max(old.shape[0], new.shape[0]), max(old.shape[1], new.shape[1]))
-        difference = self.ink(new, shape) - self.ink(old, shape)
-        canvas = np.zeros((*shape, 3), np.uint8)
+        difference = ink_difference(old, new)
+        canvas = np.zeros((*difference.shape, 3), np.uint8)
         canvas[difference > 0, 1] = 255
         canvas[difference < 0, 2] = 255
         return canvas
-
-    @staticmethod
-    def ink(image: np.ndarray, shape: tuple[int, int]) -> np.ndarray:
-        """Darkness of each pixel (0 = white, 255 = black), padded to `shape` with white."""
-        padded = np.zeros(shape, np.int16)
-        padded[: image.shape[0], : image.shape[1]] = 255 - cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        return padded
 
 
 class OverlayWriter:
