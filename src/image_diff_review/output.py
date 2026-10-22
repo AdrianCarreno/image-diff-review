@@ -40,16 +40,14 @@ class OverlayRenderer(ABC):
 
 
 class SideBySideRenderer(OverlayRenderer):
-    """Old | new side by side with every changed region boxed by what changed in it.
+    """Old | new side by side with every changed region boxed on both sides.
 
-    Green = content added, red = content removed, on both sides. A region with both (e.g. a
-    number rewritten) is boxed red on the old side and green on the new side.
+    Red on the old side (those pixels are gone), green on the new side (those pixels are new).
     """
 
-    ADDED_COLOR = (0, 160, 0)
-    REMOVED_COLOR = (0, 0, 255)
-    # Ink change a pixel needs to count as added/removed (ignores anti-aliasing jitter).
-    INK_THRESHOLD = 24
+    OLD_COLOR = (0, 0, 255)
+    NEW_COLOR = (0, 160, 0)
+    BOX_THICKNESS = 1
 
     def render(self, old: np.ndarray, new: np.ndarray, regions: list[Region]) -> np.ndarray:
         canvas = np.full(
@@ -57,24 +55,14 @@ class SideBySideRenderer(OverlayRenderer):
         )
         canvas[: old.shape[0], : old.shape[1]] = old
         canvas[: new.shape[0], old.shape[1] :] = new
-        difference = ink_difference(old, new)
+        offset = old.shape[1]
         for region in regions:
             x0, y0, x1, y1 = region.box
-            old_color, new_color = self.box_colors(difference[y0 : y1 + 1, x0 : x1 + 1])
-            cv2.rectangle(canvas, (x0, y0), (x1, y1), old_color, 3)
-            cv2.rectangle(canvas, (old.shape[1] + x0, y0), (old.shape[1] + x1, y1), new_color, 3)
+            cv2.rectangle(canvas, (x0, y0), (x1, y1), self.OLD_COLOR, self.BOX_THICKNESS)
+            cv2.rectangle(
+                canvas, (offset + x0, y0), (offset + x1, y1), self.NEW_COLOR, self.BOX_THICKNESS
+            )
         return canvas
-
-    def box_colors(self, difference: np.ndarray) -> tuple[tuple[int, int, int], ...]:
-        """(old side, new side) box colors for a region's ink difference."""
-        added = bool((difference > self.INK_THRESHOLD).any())
-        removed = bool((difference < -self.INK_THRESHOLD).any())
-        if added and removed:
-            return self.REMOVED_COLOR, self.ADDED_COLOR
-        if not (added or removed):  # only faint changes: go by the net direction
-            added = difference.sum() >= 0
-        color = self.ADDED_COLOR if added else self.REMOVED_COLOR
-        return color, color
 
 
 class DifferenceRenderer(OverlayRenderer):

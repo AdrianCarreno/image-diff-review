@@ -52,8 +52,8 @@ Each flagged image gets a `<path>.diff.png` in `--out`. By default it is a diffe
 minus old ink (darkness), fully saturated so even tiny changes stand out: green where the new
 image is darker (content added), black where unchanged, red where it is lighter (content
 removed). `--side-by-side` saves old | new next
-to each other instead, with every changed region boxed: green for added content, red for
-removed content (red on the old side and green on the new side when a region has both).
+to each other instead, with every changed region boxed red on the old side and green on the new
+side.
 
 The `--out` folder (default `image_diff_review_out`) gets a
 `.gitignore` containing `*` so it never shows up in `git status`. Overlays from a previous run

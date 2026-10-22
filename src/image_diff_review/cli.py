@@ -68,9 +68,8 @@ def main(
       * default         - new minus old ink, fully saturated: green where the new image is
                           darker (content added), black where unchanged, red where it is
                           lighter (content removed).
-      * --side-by-side  - old | new next to each other, every changed region boxed: green =
-                          content added, red = content removed (red on old, green on new when
-                          a region has both).
+      * --side-by-side  - old | new next to each other, every changed region boxed red on the
+                          old side and green on the new side.
 
     Exits 0 when nothing needs review, 1 when an image is flagged, and 2 on an unusable --out.
     """
