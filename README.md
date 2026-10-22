@@ -48,6 +48,11 @@ Run from the root of the repo (or worktree) under review:
 image-diff-review [--target origin/develop] [--head HEAD] [--out DIR] [--path-filter SUBSTR] [--show-date-only]
 ```
 
+Overlays of flagged images go to `--out` (default `image_diff_review_out`), which gets a
+`.gitignore` containing `*` so it never shows up in `git status`. Overlays from a previous run
+(`*.diff.png`) are deleted at startup; if the folder holds anything else, the tool lists it and
+exits without deleting anything.
+
 Exit code: `0` when nothing needs review, `1` when at least one image is flagged, `2` on bad `--out`.
 See `image-diff-review --help` for the full description.
 

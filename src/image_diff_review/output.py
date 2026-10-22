@@ -9,6 +9,10 @@ from image_diff_review.analysis import Analysis
 from image_diff_review.analysis import Region
 
 
+class OutputDirError(Exception):
+    """The output directory can't be used without risking files this tool didn't create."""
+
+
 class OverlayWriter:
     """Writes side-by-side old | new images with the changed regions boxed.
 
@@ -17,12 +21,44 @@ class OverlayWriter:
 
     REVIEW_COLOR = (0, 0, 255)
     DISMISSED_COLOR = (0, 160, 0)
+    OVERLAY_SUFFIX = ".diff.png"
+    GITIGNORE = ".gitignore"
 
     def __init__(self, out_dir: Path):
         self.out_dir = out_dir
 
     def path_for(self, image_path: str) -> Path:
-        return self.out_dir / (image_path.replace("/", "__") + ".diff.png")
+        return self.out_dir / (image_path.replace("/", "__") + self.OVERLAY_SUFFIX)
+
+    def is_own_overlay(self, entry: Path) -> bool:
+        return entry.is_file() and entry.name.endswith(self.OVERLAY_SUFFIX)
+
+    def prepare(self) -> list[Path]:
+        """Readies an empty output directory holding only a `.gitignore` that ignores everything.
+
+        Overlays left by a previous run are deleted and returned. Raises OutputDirError, deleting
+        nothing, if the path is not a directory or holds anything this tool would not have written.
+        """
+        if not self.out_dir.exists():
+            self.out_dir.mkdir(parents=True)
+        if not self.out_dir.is_dir():
+            raise OutputDirError(f"--out {self.out_dir} exists but is not a directory")
+
+        entries = [entry for entry in self.out_dir.iterdir() if entry.name != self.GITIGNORE]
+        foreign = sorted(entry.name for entry in entries if not self.is_own_overlay(entry))
+        if foreign:
+            listing = "\n".join(f"  {name}" for name in foreign)
+            raise OutputDirError(
+                f"--out {self.out_dir} contains files not created by image-diff-review:\n"
+                f"{listing}\nMove or delete them first, or pick another --out."
+            )
+
+        for entry in entries:
+            entry.unlink()
+        gitignore = self.out_dir / self.GITIGNORE
+        if not gitignore.exists():
+            gitignore.write_text("*\n")
+        return sorted(entries)
 
     def write(
         self, image_path: str, old: np.ndarray, new: np.ndarray, regions: list[Region]

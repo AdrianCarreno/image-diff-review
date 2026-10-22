@@ -31,6 +31,7 @@ from image_diff_review.analysis import ImageAnalyzer
 from image_diff_review.analysis import Verdict
 from image_diff_review.git import GitRepo
 from image_diff_review.output import FlaggedImage
+from image_diff_review.output import OutputDirError
 from image_diff_review.output import OverlayWriter
 from image_diff_review.output import Report
 
@@ -57,30 +58,24 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def prepare_out_dir(out_dir: Path) -> str | None:
-    """Creates `out_dir` if needed; returns an error message if it can't be used."""
-    if not out_dir.exists():
-        out_dir.mkdir(parents=True)
-    if not out_dir.is_dir():
-        return f"--out {out_dir} exists but is not a directory"
-    if any(out_dir.iterdir()):
-        return f"--out {out_dir} is not empty. Delete the existing files first."
-    return None
-
-
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    out_dir = Path(args.out)
-    if error := prepare_out_dir(out_dir):
+    overlays = OverlayWriter(Path(args.out))
+    try:
+        removed = overlays.prepare()
+    except OutputDirError as error:
         print(error, file=sys.stderr)
         return 2
+    if removed:
+        print(
+            f"removed {len(removed)} overlay(s) from a previous run in {args.out}", file=sys.stderr
+        )
 
     repo = GitRepo()
     base = repo.merge_base(args.target, args.head)
     print(f"merge-base {base[:11]}  ->  {args.head}", file=sys.stderr)
 
     analyzer = ImageAnalyzer()
-    overlays = OverlayWriter(out_dir)
     report = Report()
     for status, path in repo.changed_pngs(base, args.head):
         if args.path_filter not in path:
