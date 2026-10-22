@@ -111,6 +111,9 @@ class RegionClassifier:
     # Fraction of the patch's ink pixels allowed to still differ after the best shift.
     SHIFT_MAX_MISMATCH = 0.08
 
+    def __init__(self, date_label_re: re.Pattern[str] = DATE_LABEL_RE):
+        self.date_label_re = date_label_re
+
     def classify(self, old: np.ndarray, new: np.ndarray, boxes: list[Box]) -> list[Region]:
         return [self.classify_box(old, new, box) for box in boxes]
 
@@ -122,7 +125,7 @@ class RegionClassifier:
 
         old_text, new_text = self.ocr(old, box), self.ocr(new, box)
         note = f"{old_text!r} -> {new_text!r}"
-        if self.DATE_LABEL_RE.search(old_text) or self.DATE_LABEL_RE.search(new_text):
+        if self.date_label_re.search(old_text) or self.date_label_re.search(new_text):
             return Region(box, RegionKind.DATE, note)
         if old_text == new_text and len(old_text) >= 3 and not any(c.isdigit() for c in old_text):
             # Same words on both sides (e.g. a column header nudged against a re-sized background).

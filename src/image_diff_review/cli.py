@@ -1,9 +1,11 @@
+import re
 import sys
 from pathlib import Path
 
 import click
 
 from image_diff_review.analysis import ImageAnalyzer
+from image_diff_review.analysis import RegionClassifier
 from image_diff_review.analysis import Verdict
 from image_diff_review.git import GitRepo
 from image_diff_review.output import DifferenceRenderer
@@ -12,6 +14,13 @@ from image_diff_review.output import OutputDirError
 from image_diff_review.output import OverlayWriter
 from image_diff_review.output import Report
 from image_diff_review.output import SideBySideRenderer
+
+
+def compile_date_pattern(ctx: click.Context, param: click.Parameter, value: str) -> re.Pattern[str]:
+    try:
+        return re.compile(value, re.IGNORECASE)
+    except re.error as error:
+        raise click.BadParameter(f"not a valid regular expression: {error}") from error
 
 
 @click.command(context_settings={"help_option_names": ["-h", "--help"]})
@@ -25,6 +34,13 @@ from image_diff_review.output import SideBySideRenderer
     help="Directory for overlay images of flagged files",
 )
 @click.option("--path-filter", default="", help="Only consider paths containing this substring")
+@click.option(
+    "--date-pattern",
+    default=RegionClassifier.DATE_LABEL_RE.pattern,
+    show_default=True,
+    callback=compile_date_pattern,
+    help="Regular expression (case-insensitive) that marks OCRed text as the date label",
+)
 @click.option("--show-date-only", is_flag=True, help="Also list the images dismissed as date-only")
 @click.option(
     "--side-by-side",
@@ -38,6 +54,7 @@ def main(
     head: str,
     out: Path,
     path_filter: str,
+    date_pattern: re.Pattern[str],
     show_date_only: bool,
     side_by_side: bool,
 ) -> None:
@@ -51,8 +68,8 @@ def main(
 
     \b
     Each changed region is classified by OCR:
-      * date      - a one-line region whose old or new text reads "Data as of" /
-                    "Données en date du" (fr_CA).
+      * date      - a one-line region whose old or new text matches --date-pattern (by
+                    default "Data as of" / "Données en date du" (fr_CA)).
       * shifted   - the same content, moved by a few pixels (e.g. a column re-centred because a
                     neighbouring cell got wider), or a non-numeric label that OCRs identically on
                     both sides. Not a content change.
@@ -74,11 +91,18 @@ def main(
     Exits 0 when nothing needs review, 1 when an image is flagged, and 2 on an unusable --out.
     """
     renderer = SideBySideRenderer() if side_by_side else DifferenceRenderer()
-    ctx.exit(run(target, head, OverlayWriter(out, renderer), path_filter, show_date_only))
+    analyzer = ImageAnalyzer(classifier=RegionClassifier(date_pattern))
+    overlays = OverlayWriter(out, renderer)
+    ctx.exit(run(target, head, analyzer, overlays, path_filter, show_date_only))
 
 
 def run(
-    target: str, head: str, overlays: OverlayWriter, path_filter: str, show_date_only: bool
+    target: str,
+    head: str,
+    analyzer: ImageAnalyzer,
+    overlays: OverlayWriter,
+    path_filter: str,
+    show_date_only: bool,
 ) -> int:
     try:
         removed = overlays.prepare()
@@ -95,7 +119,6 @@ def run(
     base = repo.merge_base(target, head)
     print(f"merge-base {base[:11]}  ->  {head}", file=sys.stderr)
 
-    analyzer = ImageAnalyzer()
     report = Report()
     for status, path in repo.changed_pngs(base, head):
         if path_filter not in path:

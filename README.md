@@ -45,7 +45,7 @@ caches the build and needs `uv tool install --reinstall .` after each change.
 Run from the root of the repo (or worktree) under review:
 
 ```sh
-image-diff-review [--target origin/develop] [--head HEAD] [--out DIR] [--path-filter SUBSTR] [--show-date-only] [--side-by-side]
+image-diff-review [--target origin/develop] [--head HEAD] [--out DIR] [--path-filter SUBSTR] [--date-pattern REGEX] [--show-date-only] [--side-by-side]
 ```
 
 Each flagged image gets a `<path>.diff.png` in `--out`. By default it is a difference image: new
