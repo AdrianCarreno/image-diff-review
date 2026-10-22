@@ -46,25 +46,27 @@ class SideBySideRenderer(OverlayRenderer):
 
 
 class DifferenceRenderer(OverlayRenderer):
-    """Sign of new minus old brightness, per pixel.
+    """Sign of new minus old ink (darkness), per pixel.
 
-    Full red where the new image is darker, black where unchanged, full green where it is
-    brighter. Every change is fully saturated, so even a one-level difference stands out.
+    Fixtures are dark content on a light background, so ink tracks content: full green where the
+    new image is darker (content added), black where unchanged, full red where it is lighter
+    (content removed). Every change is fully saturated, so even a one-level difference stands out.
     """
 
     def render(self, old: np.ndarray, new: np.ndarray, regions: list[Region]) -> np.ndarray:
         # Images of different sizes are compared on a shared white canvas, top-left aligned.
         shape = (max(old.shape[0], new.shape[0]), max(old.shape[1], new.shape[1]))
-        difference = self.brightness(new, shape) - self.brightness(old, shape)
+        difference = self.ink(new, shape) - self.ink(old, shape)
         canvas = np.zeros((*shape, 3), np.uint8)
         canvas[difference > 0, 1] = 255
         canvas[difference < 0, 2] = 255
         return canvas
 
     @staticmethod
-    def brightness(image: np.ndarray, shape: tuple[int, int]) -> np.ndarray:
-        padded = np.full(shape, 255, np.int16)
-        padded[: image.shape[0], : image.shape[1]] = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    def ink(image: np.ndarray, shape: tuple[int, int]) -> np.ndarray:
+        """Darkness of each pixel (0 = white, 255 = black), padded to `shape` with white."""
+        padded = np.zeros(shape, np.int16)
+        padded[: image.shape[0], : image.shape[1]] = 255 - cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         return padded
 
 

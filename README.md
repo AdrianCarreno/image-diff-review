@@ -49,8 +49,9 @@ image-diff-review [--target origin/develop] [--head HEAD] [--out DIR] [--path-fi
 ```
 
 Each flagged image gets a `<path>.diff.png` in `--out`. By default it is a difference image: new
-minus old brightness, fully saturated so even tiny changes stand out: red where the new image is
-darker, black where unchanged, green where it is brighter. `--side-by-side` saves old | new next
+minus old ink (darkness), fully saturated so even tiny changes stand out: green where the new
+image is darker (content added), black where unchanged, red where it is lighter (content
+removed). `--side-by-side` saves old | new next
 to each other instead, with red boxes around regions that need review.
 
 The `--out` folder (default `image_diff_review_out`) gets a
