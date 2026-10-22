@@ -1,14 +1,19 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from dataclasses import field
 from pathlib import Path
 
 import cv2
 import numpy as np
 
-from image_diff_review.analysis import Analysis, Region
+from image_diff_review.analysis import Analysis
+from image_diff_review.analysis import Region
 
 
 class OverlayWriter:
-    """Writes side-by-side old | new images with the changed regions boxed; red = needs review, green = dismissed."""
+    """Writes side-by-side old | new images with the changed regions boxed.
+
+    Red = needs review, green = dismissed.
+    """
 
     REVIEW_COLOR = (0, 0, 255)
     DISMISSED_COLOR = (0, 160, 0)
@@ -17,10 +22,14 @@ class OverlayWriter:
         self.out_dir = out_dir
 
     def path_for(self, image_path: str) -> Path:
-        return self.out_dir / (image_path.replace('/', '__') + '.diff.png')
+        return self.out_dir / (image_path.replace("/", "__") + ".diff.png")
 
-    def write(self, image_path: str, old: np.ndarray, new: np.ndarray, regions: list[Region]) -> Path:
-        canvas = np.full((max(old.shape[0], new.shape[0]), old.shape[1] + new.shape[1], 3), 255, np.uint8)
+    def write(
+        self, image_path: str, old: np.ndarray, new: np.ndarray, regions: list[Region]
+    ) -> Path:
+        canvas = np.full(
+            (max(old.shape[0], new.shape[0]), old.shape[1] + new.shape[1], 3), 255, np.uint8
+        )
         canvas[: old.shape[0], : old.shape[1]] = old
         canvas[: new.shape[0], old.shape[1] :] = new
         for region in regions:
@@ -55,21 +64,22 @@ class Report:
         return 1 if self.flagged else 0
 
     def print(self, show_date_only: bool = False) -> None:
-        print(f'\n{len(self.flagged)} image(s) with changes beyond the date label:')
+        print(f"\n{len(self.flagged)} image(s) with changes beyond the date label:")
         for item in self.flagged:
-            print(f'  {item.path}\n      {item.analysis}\n      overlay: {item.overlay}')
+            print(f"  {item.path}\n      {item.analysis}\n      overlay: {item.overlay}")
             for region in item.analysis.regions:
                 if region.needs_review:
-                    print(f'      - {region.box} {region.note}')
+                    print(f"      - {region.box} {region.note}")
         print(
-            f'\nsummary: {len(self.flagged)} flagged, {len(self.date_only)} date-only, '
-            f'{len(self.identical)} pixel-identical, {len(self.skipped)} added/deleted (not compared)'
+            f"\nsummary: {len(self.flagged)} flagged, {len(self.date_only)} date-only, "
+            f"{len(self.identical)} pixel-identical, "
+            f"{len(self.skipped)} added/deleted (not compared)"
         )
         if show_date_only:
-            print('\ndate-only:')
+            print("\ndate-only:")
             for path, analysis in self.date_only:
-                print(f'  {path}')
+                print(f"  {path}")
                 for region in analysis.regions:
-                    print(f'      - {region.kind} {region.box} {region.note}')
+                    print(f"      - {region.kind} {region.box} {region.note}")
         for status, path in self.skipped:
-            print(f'  [{status}] {path}')
+            print(f"  [{status}] {path}")
