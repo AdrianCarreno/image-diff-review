@@ -1,0 +1,21 @@
+[project]
+name = "image-diff-review"
+version = "0.1.0"
+description = "Review expected-image fixture changes on a PR branch, ignoring \"Data as of\" label churn"
+readme = "README.md"
+authors = [
+    { name = "Adrian Carreno", email = "acarreno@ycharts.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "numpy",
+    "opencv-python-headless",
+    "pytesseract",
+]
+
+[project.scripts]
+image-diff-review = "image_diff_review.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.9.16,<0.10.0"]
+build-backend = "uv_build"
