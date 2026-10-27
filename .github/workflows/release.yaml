@@ -3,6 +3,8 @@ name: Release
 on:
   push:
     branches: [main]
+  # Manual runs release whatever is pending on main, e.g. after tags were removed.
+  workflow_dispatch:
 
 # Releases run one at a time, so back-to-back merges get consecutive versions.
 concurrency:
