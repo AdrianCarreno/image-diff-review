@@ -12,6 +12,7 @@ dependencies = [
     "numpy",
     "opencv-python-headless",
     "pytesseract",
+    "regex>=2026.9.29",
 ]
 
 [project.scripts]
@@ -25,6 +26,7 @@ build-backend = "uv_build"
 dev = [
     "ruff==0.16.9",
     "ty==0.0.84",
+    "types-regex==2026.9.29.20261005",
 ]
 
 [tool.ruff]

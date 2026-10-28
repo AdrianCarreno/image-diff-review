@@ -3,27 +3,28 @@
 # shell completion never pay that cost.
 from __future__ import annotations
 
-import re
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import click
 
-from image_diff_review.patterns import EXPECTED_CHANGE_RE
+from image_diff_review.patterns import EXPECTED_CHANGE_PATTERN
+from image_diff_review.patterns import compile_expected_change_re
 
 if TYPE_CHECKING:
     from image_diff_review.analysis import ImageAnalyzer
     from image_diff_review.output import OverlayWriter
 
 
-def compile_expected_pattern(
-    ctx: click.Context, param: click.Parameter, value: str
-) -> re.Pattern[str]:
+def validate_expected_pattern(ctx: click.Context, param: click.Parameter, value: str) -> str:
+    import regex
+
     try:
-        return re.compile(value, re.IGNORECASE)
-    except re.error as error:
+        compile_expected_change_re(value)
+    except regex.error as error:
         raise click.BadParameter(f"not a valid regular expression: {error}") from error
+    return value
 
 
 @click.command(context_settings={"help_option_names": ["-h", "--help"]})
@@ -39,10 +40,19 @@ def compile_expected_pattern(
 @click.option("--path-filter", default="", help="Only consider paths containing this substring")
 @click.option(
     "--expected-pattern",
-    default=EXPECTED_CHANGE_RE.pattern,
+    default=EXPECTED_CHANGE_PATTERN,
     show_default=True,
-    callback=compile_expected_pattern,
+    callback=validate_expected_pattern,
     help="Regular expression (case-insensitive) that marks OCRed text as an expected change",
+)
+@click.option(
+    "--max-ocr-errors",
+    default=0,
+    show_default=True,
+    type=click.IntRange(min=0),
+    help="Characters OCR may misread (inserted, deleted, or substituted) while text still matches "
+    "--expected-pattern; helps with tiny text. 1 is usually enough; higher values start "
+    "matching unrelated text and hiding real changes",
 )
 @click.option(
     "--show-expected-only",
@@ -61,7 +71,8 @@ def main(
     head: str,
     out: Path,
     path_filter: str,
-    expected_pattern: re.Pattern[str],
+    expected_pattern: str,
+    max_ocr_errors: int,
     show_expected_only: bool,
     side_by_side: bool,
 ) -> None:
@@ -104,7 +115,9 @@ def main(
     from image_diff_review.output import SideBySideRenderer
 
     renderer = SideBySideRenderer() if side_by_side else DifferenceRenderer()
-    analyzer = ImageAnalyzer(classifier=RegionClassifier(expected_pattern))
+    analyzer = ImageAnalyzer(
+        classifier=RegionClassifier(compile_expected_change_re(expected_pattern, max_ocr_errors))
+    )
     overlays = OverlayWriter(out, renderer)
     ctx.exit(run(target, head, analyzer, overlays, path_filter, show_expected_only))
 

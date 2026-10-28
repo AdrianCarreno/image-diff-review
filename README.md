@@ -82,8 +82,13 @@ Open a new shell (or `source` your config), then type `image-diff-review --` and
 Run from the root of the repo (or worktree) under review:
 
 ```sh
-image-diff-review [--target origin/develop] [--head HEAD] [--out DIR] [--path-filter SUBSTR] [--expected-pattern REGEX] [--show-expected-only] [--side-by-side]
+image-diff-review [--target origin/develop] [--head HEAD] [--out DIR] [--path-filter SUBSTR] [--expected-pattern REGEX] [--max-ocr-errors N] [--show-expected-only] [--side-by-side]
 ```
+
+OCR misreads very small text (e.g. "Data as of" as "Dats ss of"), which makes expected changes
+look unexpected. `--max-ocr-errors N` lets matched text differ from `--expected-pattern` by up to
+`N` inserted, deleted, or substituted characters. `1` is usually enough; higher values start
+matching unrelated text and hide real changes.
 
 Each flagged image gets a `<path>.diff.png` in `--out`. By default it is a difference image: new
 minus old ink (darkness), fully saturated so even tiny changes stand out: green where the new

@@ -1,4 +1,3 @@
-import re
 from dataclasses import dataclass
 from dataclasses import field
 from enum import StrEnum
@@ -6,8 +5,9 @@ from enum import StrEnum
 import cv2
 import numpy as np
 import pytesseract
+import regex
 
-from image_diff_review.patterns import EXPECTED_CHANGE_RE
+from image_diff_review.patterns import compile_expected_change_re
 
 Box = tuple[int, int, int, int]  # x0, y0, x1, y1 inclusive
 
@@ -110,8 +110,8 @@ class RegionClassifier:
     # Fraction of the patch's ink pixels allowed to still differ after the best shift.
     SHIFT_MAX_MISMATCH = 0.08
 
-    def __init__(self, expected_change_re: re.Pattern[str] = EXPECTED_CHANGE_RE):
-        self.expected_change_re = expected_change_re
+    def __init__(self, expected_change_re: regex.Pattern[str] | None = None):
+        self.expected_change_re = expected_change_re or compile_expected_change_re()
 
     def classify(self, old: np.ndarray, new: np.ndarray, boxes: list[Box]) -> list[Region]:
         return [self.classify_box(old, new, box) for box in boxes]
